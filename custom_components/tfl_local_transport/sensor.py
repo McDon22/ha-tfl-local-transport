@@ -319,7 +319,7 @@ class TrainDepartureSensor(CoordinatorEntity, SensorEntity):
         if not self.coordinator.data:
             return None
         
-        services = self.coordinator.data.get("trainServices", [])
+        services = self.coordinator.data.get("trainServices") or []
         if services:
             first = services[0]
             etd = first.get("etd", first.get("std", "Unknown"))
@@ -333,7 +333,7 @@ class TrainDepartureSensor(CoordinatorEntity, SensorEntity):
             return {}
 
         data = self.coordinator.data
-        services = data.get("trainServices", [])
+        services = data.get("trainServices") or []
         
         trains = []
         for svc in services[:10]:
