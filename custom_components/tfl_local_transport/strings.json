@@ -1,0 +1,36 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "TfL Local Transport Setup",
+        "description": "Configure your local transport sensors. The station CRS code is the 3-letter code for your station (e.g., GRP for Grove Park).\n\nAPI keys are optional but recommended for higher rate limits. Get a Darwin API key from https://raildata.org.uk/ and a TfL API key from https://api-portal.tfl.gov.uk/",
+        "data": {
+          "station_crs": "Station CRS Code",
+          "darwin_api_key": "National Rail Darwin API Key (optional)",
+          "tfl_app_key": "TfL API Key (optional)",
+          "destinations": "London Destinations to Monitor",
+          "lines": "Rail Lines to Monitor",
+          "num_departures": "Number of Departures to Show",
+          "time_window": "Time Window (minutes)"
+        }
+      }
+    },
+    "error": {
+      "invalid_crs": "Invalid station CRS code. Must be exactly 3 letters.",
+      "cannot_connect": "Failed to connect to the API. Please check your configuration.",
+      "unknown": "Unexpected error occurred."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Configure TfL Local Transport",
+        "data": {
+          "destinations": "London Destinations to Monitor",
+          "num_departures": "Number of Departures to Show",
+          "time_window": "Time Window (minutes)"
+        }
+      }
+    }
+  }
+}
