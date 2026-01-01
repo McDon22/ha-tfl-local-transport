@@ -15,7 +15,7 @@ CONF_TIME_WINDOW = "time_window"
 
 # Default values
 DEFAULT_NUM_DEPARTURES = 10
-DEFAULT_TIME_WINDOW = 120  # minutes
+DEFAULT_TIME_WINDOW = 1440  # 24 hours in minutes - look further ahead for quiet periods
 DEFAULT_UPDATE_INTERVAL = 120  # seconds
 
 # API endpoints
@@ -26,6 +26,17 @@ HUXLEY_API_BASE = "https://huxley2.azurewebsites.net"  # Community JSON proxy (n
 # Grove Park specific
 GROVE_PARK_CRS = "GRP"
 GROVE_PARK_NAPTAN = "910GGRVPK"
+
+# Grove Park Bus Stops
+GROVE_PARK_BUS_STOPS = {
+    "490001124E": "Grove Park Station (Stop E) - towards Lee Green/Mottingham",
+    "490015256D": "Grove Park Station (Stop D) - towards Catford/Lewisham", 
+    "490015256C": "Grove Park Station (Stop C) - towards Mottingham",
+    "490001124B": "Grove Park Station (Stop B) - towards Bromley",
+}
+
+# Default bus stops to monitor
+DEFAULT_BUS_STOPS = ["490001124E", "490015256D"]
 
 # Common London stations for destination filtering
 LONDON_TERMINALS = {
