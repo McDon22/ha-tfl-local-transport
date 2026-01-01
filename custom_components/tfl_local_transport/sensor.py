@@ -57,7 +57,8 @@ async def async_setup_entry(
     station_crs = config.get(CONF_STATION_CRS, GROVE_PARK_CRS)
     destinations = config.get(CONF_DESTINATIONS, list(LONDON_TERMINALS.keys()))
     # Default to Grove Park bus stops if none configured
-    bus_stops = config.get(CONF_BUS_STOPS, DEFAULT_BUS_STOPS)
+    bus_stops = config.get(CONF_BUS_STOPS) or DEFAULT_BUS_STOPS
+    _LOGGER.info(f"Bus stops to monitor: {bus_stops}")
     lines = config.get(CONF_LINES, ["southeastern"])
     num_departures = config.get(CONF_NUM_DEPARTURES, DEFAULT_NUM_DEPARTURES)
     time_window = config.get(CONF_TIME_WINDOW, DEFAULT_TIME_WINDOW)
