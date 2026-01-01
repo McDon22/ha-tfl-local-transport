@@ -15,7 +15,7 @@ CONF_TIME_WINDOW = "time_window"
 
 # Default values
 DEFAULT_NUM_DEPARTURES = 10
-DEFAULT_TIME_WINDOW = 1440  # 24 hours in minutes - look further ahead for quiet periods
+DEFAULT_TIME_WINDOW = 120  # 2 hours - max allowed by API
 DEFAULT_UPDATE_INTERVAL = 120  # seconds
 
 # API endpoints
