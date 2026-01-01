@@ -45,6 +45,7 @@ async def async_setup_entry(
     async_add_entities: AddEntitiesCallback,
 ) -> None:
     """Set up the sensor platform."""
+    _LOGGER.warning("TFL_DEBUG: async_setup_entry started")
     data = hass.data[DOMAIN][config_entry.entry_id]
     session = data["session"]
     config = data["config"]
@@ -58,7 +59,7 @@ async def async_setup_entry(
     destinations = config.get(CONF_DESTINATIONS, list(LONDON_TERMINALS.keys()))
     # Default to Grove Park bus stops if none configured
     bus_stops = config.get(CONF_BUS_STOPS) or DEFAULT_BUS_STOPS
-    _LOGGER.info(f"Bus stops to monitor: {bus_stops}")
+    _LOGGER.warning(f"TFL_DEBUG: Bus stops to monitor: {bus_stops}")
     lines = config.get(CONF_LINES, ["southeastern"])
     num_departures = config.get(CONF_NUM_DEPARTURES, DEFAULT_NUM_DEPARTURES)
     time_window = config.get(CONF_TIME_WINDOW, DEFAULT_TIME_WINDOW)
@@ -133,7 +134,9 @@ async def async_setup_entry(
     entities.append(LineStatusSensor(line_coordinator, lines))
 
     # Bus stop sensors
+    _LOGGER.warning(f"TFL_DEBUG: About to create {len(bus_stops)} bus sensors")
     for stop_id in bus_stops:
+        _LOGGER.warning(f"TFL_DEBUG: Creating bus sensor for stop {stop_id}")
         bus_coordinator = BusArrivalCoordinator(hass, tfl_client, stop_id)
         await bus_coordinator.async_config_entry_first_refresh()
         entities.append(BusArrivalSensor(bus_coordinator, stop_id))
