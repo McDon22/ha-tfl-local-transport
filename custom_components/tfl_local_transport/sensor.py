@@ -34,7 +34,7 @@ from .const import (
     GROVE_PARK_CRS,
     LONDON_TERMINALS,
 )
-from .api import TflApiClient, HuxleyApiClient
+from .api import TflApiClient, TrainApiClient
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -45,7 +45,7 @@ async def async_setup_entry(
     async_add_entities: AddEntitiesCallback,
 ) -> None:
     """Set up the sensor platform."""
-    _LOGGER.warning("TFL_DEBUG: async_setup_entry started")
+    _LOGGER.debug("TfL Local Transport: async_setup_entry started")
     data = hass.data[DOMAIN][config_entry.entry_id]
     session = data["session"]
     config = data["config"]
@@ -53,13 +53,20 @@ async def async_setup_entry(
     # Initialize API clients
     tfl_client = TflApiClient(session, config.get(CONF_TFL_APP_KEY))
     darwin_api_key = config.get(CONF_DARWIN_API_KEY)
-    huxley_client = HuxleyApiClient(session, darwin_api_key)
+    
+    # Use the unified TrainApiClient that tries Darwin first, falls back to Huxley
+    train_client = TrainApiClient(session, darwin_api_key=darwin_api_key)
+    
+    if darwin_api_key:
+        _LOGGER.info("TfL Local Transport: Darwin API key configured, will use as primary source")
+    else:
+        _LOGGER.info("TfL Local Transport: No Darwin API key, using Huxley API only")
 
     station_crs = config.get(CONF_STATION_CRS, GROVE_PARK_CRS)
     destinations = config.get(CONF_DESTINATIONS, list(LONDON_TERMINALS.keys()))
     # Default to Grove Park bus stops if none configured
     bus_stops = config.get(CONF_BUS_STOPS) or DEFAULT_BUS_STOPS
-    _LOGGER.warning(f"TFL_DEBUG: Bus stops to monitor: {bus_stops}")
+    _LOGGER.debug(f"TfL Local Transport: Bus stops to monitor: {bus_stops}")
     lines = config.get(CONF_LINES, ["southeastern"])
     num_departures = config.get(CONF_NUM_DEPARTURES, DEFAULT_NUM_DEPARTURES)
     time_window = config.get(CONF_TIME_WINDOW, DEFAULT_TIME_WINDOW)
@@ -69,7 +76,7 @@ async def async_setup_entry(
     # Create train departure coordinator and sensors
     train_coordinator = TrainDepartureCoordinator(
         hass,
-        huxley_client,
+        train_client,
         station_crs,
         num_departures,
         time_window,
@@ -90,7 +97,7 @@ async def async_setup_entry(
     for dest_crs in destinations[:5]:  # Limit to avoid too many API calls
         dest_coordinator = TrainDepartureCoordinator(
             hass,
-            huxley_client,
+            train_client,
             station_crs,
             num_departures,
             time_window,
@@ -113,7 +120,7 @@ async def async_setup_entry(
     # Arrivals from London sensor
     arrivals_coordinator = TrainArrivalCoordinator(
         hass,
-        huxley_client,
+        train_client,
         station_crs,
         num_departures,
         time_window,
@@ -134,9 +141,9 @@ async def async_setup_entry(
     entities.append(LineStatusSensor(line_coordinator, lines))
 
     # Bus stop sensors
-    _LOGGER.warning(f"TFL_DEBUG: About to create {len(bus_stops)} bus sensors")
+    _LOGGER.debug(f"TfL Local Transport: About to create {len(bus_stops)} bus sensors")
     for stop_id in bus_stops:
-        _LOGGER.warning(f"TFL_DEBUG: Creating bus sensor for stop {stop_id}")
+        _LOGGER.debug(f"TfL Local Transport: Creating bus sensor for stop {stop_id}")
         bus_coordinator = BusArrivalCoordinator(hass, tfl_client, stop_id)
         await bus_coordinator.async_config_entry_first_refresh()
         entities.append(BusArrivalSensor(bus_coordinator, stop_id))
@@ -150,7 +157,7 @@ class TrainDepartureCoordinator(DataUpdateCoordinator):
     def __init__(
         self,
         hass: HomeAssistant,
-        client: HuxleyApiClient,
+        client: TrainApiClient,
         station_crs: str,
         num_departures: int,
         time_window: int,
@@ -197,7 +204,7 @@ class TrainArrivalCoordinator(DataUpdateCoordinator):
     def __init__(
         self,
         hass: HomeAssistant,
-        client: HuxleyApiClient,
+        client: TrainApiClient,
         station_crs: str,
         num_arrivals: int,
         time_window: int,
@@ -251,7 +258,7 @@ class LineStatusCoordinator(DataUpdateCoordinator):
             hass,
             _LOGGER,
             name="Line Status",
-            update_interval=timedelta(minutes=5),
+            update_interval=timedelta(seconds=300),  # 5 minutes for line status
         )
 
     async def _async_update_data(self) -> list[dict]:
@@ -379,6 +386,11 @@ class TrainDepartureSensor(CoordinatorEntity, SensorEntity):
             
             trains.append(train_info)
 
+        # Get API source if available
+        api_source = None
+        if hasattr(self.coordinator, 'client') and hasattr(self.coordinator.client, 'last_source'):
+            api_source = self.coordinator.client.last_source
+
         return {
             "station_name": data.get("locationName"),
             "crs": data.get("crs"),
@@ -389,6 +401,7 @@ class TrainDepartureSensor(CoordinatorEntity, SensorEntity):
             "nrcc_messages": data.get("nrccMessages", []),
             "platforms_available": data.get("platformAvailable", False),
             "services_available": data.get("areServicesAvailable", True),
+            "api_source": api_source,
         }
 
 
