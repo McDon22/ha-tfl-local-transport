@@ -1,4 +1,19 @@
-# TfL Local Transport - Home Assistant Integration
+<p align="center">
+  <img src="logo.png" alt="TfL Local Transport" width="200">
+</p>
+
+<h1 align="center">TfL Local Transport</h1>
+<p align="center">
+  <strong>A Home Assistant integration for local transport information</strong>
+</p>
+
+<p align="center">
+  <a href="https://github.com/McDon22/ha-tfl-local-transport/releases"><img src="https://img.shields.io/github/v/release/McDon22/ha-tfl-local-transport?style=flat-square" alt="Release"></a>
+  <a href="https://github.com/hacs/integration"><img src="https://img.shields.io/badge/HACS-Custom-orange.svg?style=flat-square" alt="HACS Custom"></a>
+  <img src="https://img.shields.io/github/license/McDon22/ha-tfl-local-transport?style=flat-square" alt="License">
+</p>
+
+---
 
 A Home Assistant custom integration that provides comprehensive local transport information using the TfL Unified API and National Rail Darwin API.
 
@@ -10,22 +25,26 @@ A Home Assistant custom integration that provides comprehensive local transport 
 - **Line Status**: Southeastern, Southern, Thameslink line status and disruptions
 - **Bus Arrivals**: Real-time bus arrivals at nearby stops (via TfL API)
 - **NRCC Messages**: National Rail Customer Communication messages
+- **Darwin API Support**: Direct connection to Rail Data Marketplace with automatic Huxley fallback
 
 ## Installation
 
-### Manual Installation
+### HACS Installation (Recommended)
 
-1. Copy the `tfl_local_transport` folder to your Home Assistant `config/custom_components/` directory
-2. Restart Home Assistant
-3. Go to **Settings** > **Devices & Services** > **Add Integration**
-4. Search for "TfL Local Transport" and configure
-
-### HACS Installation
-
-1. Add this repository as a custom repository in HACS
+1. Add this repository as a custom repository in HACS:
+   - Go to HACS → Integrations → ⋮ (menu) → Custom repositories
+   - Add `https://github.com/McDon22/ha-tfl-local-transport`
+   - Category: Integration
 2. Install "TfL Local Transport"
 3. Restart Home Assistant
 4. Configure via the UI
+
+### Manual Installation
+
+1. Copy the `custom_components/tfl_local_transport` folder to your Home Assistant `config/custom_components/` directory
+2. Restart Home Assistant
+3. Go to **Settings** > **Devices & Services** > **Add Integration**
+4. Search for "TfL Local Transport" and configure
 
 ## Configuration
 
@@ -39,8 +58,8 @@ A Home Assistant custom integration that provides comprehensive local transport 
 
 | Setting | Description | Default |
 |---------|-------------|---------|
-| Darwin API Key | National Rail API key for higher rate limits | None |
-| TfL API Key | TfL API key for higher rate limits | None |
+| Darwin API Key | National Rail API key (highly recommended) | None |
+| TfL API Key | TfL API key for bus data | None |
 | Destinations | London stations to monitor | CHX, LBG, VIC |
 | Lines | Rail lines to monitor for status | Southeastern |
 | Num Departures | Number of trains to show | 10 |
@@ -48,21 +67,20 @@ A Home Assistant custom integration that provides comprehensive local transport 
 
 ### Getting API Keys
 
-**National Rail Darwin API** (recommended for reliable train data):
+**National Rail Darwin API** (highly recommended):
 1. Visit https://raildata.org.uk/
 2. Register for an account
 3. Subscribe to the "Live Departure Board" API
+4. Use the Consumer Key as your Darwin API key
 
 **TfL API Key** (recommended for bus data):
 1. Visit https://api-portal.tfl.gov.uk/
 2. Register for an account
 3. Create an application to get your key
 
-**Note**: Without API keys, the integration will use community endpoints with rate limits. API keys are highly recommended for production use.
-
 ## Station CRS Codes
 
-Common stations in the Grove Park area:
+Common stations:
 
 | Station | CRS Code |
 |---------|----------|
@@ -80,189 +98,60 @@ Find your station code at: https://www.nationalrail.co.uk/stations/
 
 ## Sensors Created
 
-The integration creates the following sensors:
-
 ### Train Departures
-- `sensor.train_departures_grp` - All departures from Grove Park
-- `sensor.train_departures_grp_chx` - Departures to Charing Cross
-- `sensor.train_departures_grp_lbg` - Departures to London Bridge
-- `sensor.train_departures_grp_vic` - Departures to Victoria
+- `sensor.train_departures_{crs}` - All departures from your station
+- `sensor.train_departures_{crs}_{dest}` - Departures to specific destinations
 
 ### Train Arrivals
-- `sensor.train_arrivals_grp` - All arrivals at Grove Park
+- `sensor.train_arrivals_{crs}` - All arrivals at your station
 
 ### Line Status
 - `sensor.line_status` - Current line status for monitored lines
 
-### Bus Arrivals (if configured)
+### Bus Arrivals
 - `sensor.bus_stop_{stop_id}` - Bus arrivals at configured stops
 
-## Sensor Attributes
-
-### Train Departure Sensors
-
-```yaml
-station_name: "Grove Park"
-crs: "GRP"
-generated_at: "2025-01-01T10:30:00Z"
-filter_destination: "London Charing Cross"
-trains:
-  - scheduled: "10:35"
-    expected: "On time"
-    platform: "1"
-    destination: "London Charing Cross"
-    operator: "Southeastern"
-    is_cancelled: false
-    calling_points:
-      - station: "Hither Green"
-        scheduled: "10:39"
-      - station: "Lewisham"
-        scheduled: "10:42"
-```
-
-## Example Lovelace Cards
-
-### Simple Train Departure Card
-
-```yaml
-type: entities
-title: Next Trains to London
-entities:
-  - entity: sensor.train_departures_grp_chx
-    name: To Charing Cross
-  - entity: sensor.train_departures_grp_lbg
-    name: To London Bridge
-  - entity: sensor.train_departures_grp_vic
-    name: To Victoria
-```
-
-### Detailed Departure Board (Markdown Card)
+## Example Lovelace Card
 
 ```yaml
 type: markdown
-title: Grove Park Departures
-content: |
-  {% set trains = state_attr('sensor.train_departures_grp', 'trains') %}
-  | Time | Platform | Destination | Status |
-  |------|----------|-------------|--------|
-  {% for train in trains[:5] %}
-  | {{ train.scheduled }} | {{ train.platform }} | {{ train.destination }} | {{ train.expected }} |
-  {% endfor %}
-```
-
-### Departure Board with Delays Highlighted
-
-```yaml
-type: markdown
-title: Grove Park to Charing Cross
+title: Next Trains
 content: |
   {% set trains = state_attr('sensor.train_departures_grp_chx', 'trains') %}
   {% for train in trains[:3] %}
   **{{ train.scheduled }}** → Platform {{ train.platform or 'TBC' }}
-  {% if train.is_cancelled %}
-  🚫 CANCELLED{% if train.cancel_reason %}: {{ train.cancel_reason }}{% endif %}
-  {% elif train.expected != 'On time' and train.expected != train.scheduled %}
-  ⚠️ Expected: {{ train.expected }}{% if train.delay_reason %} ({{ train.delay_reason }}){% endif %}
-  {% else %}
-  ✅ On time
-  {% endif %}
-  
+  {% if train.is_cancelled %}🚫 CANCELLED
+  {% elif train.expected != 'On time' %}⚠️ {{ train.expected }}
+  {% else %}✅ On time{% endif %}
   {% endfor %}
 ```
-
-### Line Status Card
-
-```yaml
-type: entities
-title: Line Status
-entities:
-  - entity: sensor.line_status
-    name: Southeastern
-```
-
-## Automations
-
-### Notify on Train Cancellations
-
-```yaml
-automation:
-  - alias: "Train Cancellation Alert"
-    trigger:
-      - platform: state
-        entity_id: sensor.train_departures_grp_chx
-    condition:
-      - condition: template
-        value_template: >
-          {% set trains = state_attr('sensor.train_departures_grp_chx', 'trains') %}
-          {{ trains | selectattr('is_cancelled', 'equalto', true) | list | count > 0 }}
-    action:
-      - service: notify.mobile_app
-        data:
-          title: "Train Cancelled"
-          message: >
-            {% set trains = state_attr('sensor.train_departures_grp_chx', 'trains') %}
-            {% set cancelled = trains | selectattr('is_cancelled', 'equalto', true) | first %}
-            The {{ cancelled.scheduled }} to {{ cancelled.destination }} has been cancelled.
-```
-
-### Morning Commute Summary
-
-```yaml
-automation:
-  - alias: "Morning Commute Update"
-    trigger:
-      - platform: time
-        at: "07:00:00"
-    condition:
-      - condition: time
-        weekday:
-          - mon
-          - tue
-          - wed
-          - thu
-          - fri
-    action:
-      - service: notify.mobile_app
-        data:
-          title: "Morning Commute"
-          message: >
-            {% set trains = state_attr('sensor.train_departures_grp_chx', 'trains') %}
-            Next train: {{ trains[0].scheduled }} ({{ trains[0].expected }})
-            Platform: {{ trains[0].platform or 'TBC' }}
-```
-
-## Troubleshooting
-
-### No train data showing
-- Verify your station CRS code is correct
-- Check if you've exceeded API rate limits (get an API key)
-- Ensure the station has services running
-
-### "On time" not showing correctly
-- The Darwin API sometimes returns the scheduled time as the expected time
-- Check the `is_cancelled` and `delay_reason` attributes for more info
-
-### API rate limiting
-- Register for API keys for higher limits
-- The integration updates every 2 minutes by default
-- Reduce the number of monitored destinations if needed
 
 ## API Information
 
 This integration uses:
 
-1. **Huxley2 Community API** (default, no key needed):
-   - REST JSON proxy for National Rail Darwin data
-   - Rate limited, suitable for personal use
+1. **Rail Data Marketplace API** (with Darwin API key):
+   - Direct access to National Rail Darwin Live Departure Boards
+   - Most reliable option
 
-2. **Rail Data Marketplace API** (with API key):
-   - Direct access to Darwin Live Departure Boards
-   - Higher rate limits, more reliable
+2. **Huxley2 Community API** (fallback):
+   - REST JSON proxy for Darwin data
+   - Used when Darwin API unavailable
 
 3. **TfL Unified API**:
-   - Line status for Southeastern and other lines
+   - Line status information
    - Bus arrival times
-   - Station information
+
+## Troubleshooting
+
+### Sensors showing "unknown"
+- Verify your Darwin API key is correct
+- Check Home Assistant logs for API errors
+- Ensure your station CRS code is valid
+
+### Rate limiting
+- Get API keys for higher limits
+- The integration updates every 2 minutes
 
 ## Contributing
 
