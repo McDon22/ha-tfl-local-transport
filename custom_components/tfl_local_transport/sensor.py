@@ -372,10 +372,12 @@ class TrainDepartureSensor(CoordinatorEntity, SensorEntity):
                     train_info["origin_crs"] = origins[0].get("crs")
             
             # Add calling points if available
-            if "subsequentCallingPoints" in svc:
+            if svc.get("subsequentCallingPoints"):
                 calling_points = []
-                for cp_list in svc.get("subsequentCallingPoints", []):
-                    for cp in cp_list.get("callingPoint", []):
+                for cp_list in (svc.get("subsequentCallingPoints") or []):
+                    if cp_list is None:
+                        continue
+                    for cp in (cp_list.get("callingPoint") or []):
                         calling_points.append({
                             "station": cp.get("locationName"),
                             "crs": cp.get("crs"),
