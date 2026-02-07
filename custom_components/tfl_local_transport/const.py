@@ -20,6 +20,7 @@ DEFAULT_UPDATE_INTERVAL = 120  # seconds
 
 # API endpoints
 TFL_API_BASE = "https://api.tfl.gov.uk"
+TFL_API_URL = "https://api.tfl.gov.uk"  # Alias for compatibility
 DARWIN_API_BASE = "https://api1.raildata.org.uk/1010-live-departure-board-dep1_2/LDBWS/api/20220120"
 HUXLEY_API_BASE = "https://huxley2.azurewebsites.net"  # Community JSON proxy (no key needed for testing)
 
@@ -48,3 +49,19 @@ LONDON_TERMINALS = {
     "WAE": "London Waterloo East",
     "STP": "St Pancras International",
 }
+
+# DLR StopPoint IDs
+DLR_STATIONS = {
+    "LEWISHAM": "940GZZDLLEW",
+    "BANK": "940GZZDLBNK",
+    "GREENWICH": "940GZZDLGRE",
+    "CUTTY_SARK": "940GZZDLCUT",  # Note: Currently closed until spring 2026
+}
+
+# Sensor names
+SENSOR_TRAIN_DEPARTURES = "train_departures"
+SENSOR_TRAIN_ARRIVALS = "train_arrivals"
+SENSOR_LINE_STATUS = "line_status"
+SENSOR_BUS_STOP = "bus_stop"
+SENSOR_DLR_DEPARTURES = "dlr_departures"
+
