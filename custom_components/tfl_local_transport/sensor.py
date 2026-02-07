@@ -17,6 +17,7 @@ from homeassistant.helpers.update_coordinator import (
 )
 
 from .const import (
+    ATTRIBUTION,
     DEFAULT_BUS_STOPS,
     DOMAIN,
     CONF_STATION_CRS,
@@ -733,3 +734,4 @@ class DLRDepartureSensor(SensorEntity):
 #     _LOGGER.info("DLR sensors created successfully")
 #
 # ============================================================================
+
