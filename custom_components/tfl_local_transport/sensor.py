@@ -33,6 +33,8 @@ from .const import (
     DEFAULT_UPDATE_INTERVAL,
     GROVE_PARK_CRS,
     LONDON_TERMINALS,
+    DLR_STATIONS,
+    SENSOR_DLR_DEPARTURES,
 )
 from .api import TflApiClient, TrainApiClient
 
@@ -147,6 +149,17 @@ async def async_setup_entry(
         bus_coordinator = BusArrivalCoordinator(hass, tfl_client, stop_id)
         await bus_coordinator.async_config_entry_first_refresh()
         entities.append(BusArrivalSensor(bus_coordinator, stop_id))
+
+    # DLR departure sensors
+    _LOGGER.debug("TfL Local Transport: Creating DLR sensors")
+    # Lewisham to Bank DLR sensor
+    dlr_lewisham_sensor = DLRDepartureSensor(
+        tfl_client,
+        DLR_STATIONS["LEWISHAM"],
+        "Lewisham",
+        destination_filter="Bank"
+    )
+    entities.append(dlr_lewisham_sensor)
 
     async_add_entities(entities)
 
@@ -507,3 +520,216 @@ class BusArrivalSensor(CoordinatorEntity, SensorEntity):
             "stop_id": self.stop_id,
             "buses": buses,
         }
+
+
+
+class DLRDepartureSensor(SensorEntity):
+    """Sensor for DLR departures from a specific station.
+    
+    This sensor monitors DLR train arrivals at a station and presents them
+    as departures from the user's perspective. It supports filtering by
+    destination (e.g., only trains heading to Bank).
+    
+    Attributes:
+        state: Number of upcoming DLR departures
+        departures: List of departure information dictionaries
+        station_id: TfL StopPoint ID
+        station_name: Human-readable station name
+        destination_filter: Optional destination filter
+    """
+
+    def __init__(
+        self,
+        tfl_api_client,
+        station_id: str,
+        station_name: str,
+        destination_filter: str | None = None,
+    ):
+        """Initialize the DLR departure sensor.
+        
+        Args:
+            tfl_api_client: TflApiClient instance for API calls
+            station_id: TfL StopPoint ID (e.g., '940GZZDLLEW')
+            station_name: Display name (e.g., 'Lewisham')
+            destination_filter: Optional destination to filter for (e.g., 'Bank')
+        """
+        self._tfl_api_client = tfl_api_client
+        self._station_id = station_id
+        self._station_name = station_name
+        self._destination_filter = destination_filter
+        
+        # Set up entity attributes
+        self._attr_name = self._generate_name()
+        self._attr_unique_id = self._generate_unique_id()
+        self._attr_attribution = ATTRIBUTION
+        self._attr_icon = "mdi:train"
+        
+        self._departures = []
+        self._last_update = None
+
+    def _generate_name(self) -> str:
+        """Generate sensor name based on configuration.
+        
+        Returns:
+            Sensor name like "DLR Lewisham to Bank" or "DLR Lewisham"
+        """
+        base_name = f"DLR {self._station_name}"
+        if self._destination_filter:
+            # Remove "DLR Station" suffix if present for cleaner name
+            clean_dest = self._destination_filter.replace(" DLR Station", "")
+            return f"{base_name} to {clean_dest}"
+        return base_name
+
+    def _generate_unique_id(self) -> str:
+        """Generate unique ID for the sensor.
+        
+        Returns:
+            Unique ID like "tfl_local_transport_dlr_departures_940GZZDLLEW_to_bank"
+        """
+        base_id = f"{DOMAIN}_{SENSOR_DLR_DEPARTURES}_{self._station_id}"
+        if self._destination_filter:
+            # Create URL-safe slug from destination
+            filter_slug = (
+                self._destination_filter
+                .lower()
+                .replace(" dlr station", "")
+                .replace(" ", "_")
+            )
+            return f"{base_id}_to_{filter_slug}"
+        return base_id
+
+    @property
+    def state(self) -> int:
+        """Return the number of upcoming departures.
+        
+        Returns:
+            Count of departures in the next hour
+        """
+        return len(self._departures)
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        """Return additional state attributes.
+        
+        Returns:
+            Dictionary with departure details, station info, and metadata
+        """
+        return {
+            "departures": self._departures,
+            "station_id": self._station_id,
+            "station_name": self._station_name,
+            "destination_filter": self._destination_filter,
+            "last_update": self._last_update,
+            "attribution": ATTRIBUTION,
+        }
+
+    async def async_update(self) -> None:
+        """Fetch new departure data from TfL API.
+        
+        This method:
+        1. Queries the TfL API for arrivals at the station
+        2. Filters by destination if configured
+        3. Processes timing and platform information
+        4. Sorts by soonest departure first
+        5. Limits to next 10 departures
+        """
+        try:
+            # Get arrivals (which are departures from this station's perspective)
+            arrivals = await self._tfl_api_client.get_dlr_arrivals(self._station_id)
+            
+            if not arrivals:
+                _LOGGER.debug(
+                    "No DLR arrivals data for station %s",
+                    self._station_id
+                )
+                self._departures = []
+                return
+
+            # Process and filter arrivals
+            processed_departures = []
+            
+            for arrival in arrivals:
+                # Apply destination filter if specified
+                if self._destination_filter:
+                    dest_name = arrival.get("destinationName", "")
+                    # Case-insensitive partial match (e.g., "Bank" matches "Bank DLR Station")
+                    if self._destination_filter.lower() not in dest_name.lower():
+                        continue
+                
+                # Extract relevant information
+                departure = {
+                    "destination": arrival.get("destinationName", "Unknown"),
+                    "platform": arrival.get("platformName", ""),
+                    "expected_arrival": arrival.get("expectedArrival"),
+                    "time_to_station": arrival.get("timeToStation", 0),
+                    "current_location": arrival.get("currentLocation", ""),
+                    "direction": arrival.get("direction", ""),
+                    "line_name": arrival.get("lineName", "DLR"),
+                    "towards": arrival.get("towards", ""),
+                }
+                
+                # Calculate minutes until departure
+                time_to_station_seconds = departure["time_to_station"]
+                departure["minutes_until"] = max(0, time_to_station_seconds // 60)
+                
+                # Format expected arrival time (HH:MM)
+                if departure["expected_arrival"]:
+                    try:
+                        expected_dt = datetime.fromisoformat(
+                            departure["expected_arrival"].replace("Z", "+00:00")
+                        )
+                        departure["expected_time"] = expected_dt.strftime("%H:%M")
+                    except (ValueError, AttributeError):
+                        departure["expected_time"] = "Unknown"
+                else:
+                    departure["expected_time"] = "Unknown"
+                
+                processed_departures.append(departure)
+            
+            # Sort by time to station (soonest first)
+            processed_departures.sort(key=lambda x: x["time_to_station"])
+            
+            # Limit to next 10 departures
+            self._departures = processed_departures[:10]
+            self._last_update = datetime.now().isoformat()
+            
+            _LOGGER.debug(
+                "Updated DLR departures for %s: %d services found",
+                self._station_name,
+                len(self._departures)
+            )
+            
+        except Exception as err:
+            _LOGGER.error(
+                "Error updating DLR departures for %s: %s",
+                self._station_name,
+                err,
+                exc_info=True
+            )
+            # Clear departures on error rather than showing stale data
+            self._departures = []
+
+
+# ============================================================================
+# INTEGRATION INTO sensor.py
+# ============================================================================
+#
+# In your async_setup_entry function in sensor.py, add:
+#
+# # Add DLR sensors (after existing sensor setup)
+# if tfl_api_client and config_entry.data.get(CONF_TFL_API_KEY):
+#     _LOGGER.info("Setting up DLR sensors")
+#     
+#     dlr_sensors = [
+#         DLRDepartureSensor(
+#             tfl_api_client=tfl_api_client,
+#             station_id=DLR_STATIONS["LEWISHAM"],
+#             station_name="Lewisham",
+#             destination_filter="Bank",
+#         ),
+#     ]
+#     
+#     async_add_entities(dlr_sensors, True)
+#     _LOGGER.info("DLR sensors created successfully")
+#
+# ============================================================================
