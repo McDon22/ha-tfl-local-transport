@@ -58,6 +58,9 @@ DLR_STATIONS = {
     "CUTTY_SARK": "940GZZDLCUT",  # Note: Currently closed until spring 2026
 }
 
+# Attribution
+ATTRIBUTION = "Data provided by National Rail and TfL"
+
 # Sensor names
 SENSOR_TRAIN_DEPARTURES = "train_departures"
 SENSOR_TRAIN_ARRIVALS = "train_arrivals"
