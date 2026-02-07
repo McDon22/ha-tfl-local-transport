@@ -1,12 +1,16 @@
 {
   "domain": "tfl_local_transport",
   "name": "TfL Local Transport",
-  "codeowners": ["@McDon22"],
+  "codeowners": [
+    "@McDon22"
+  ],
   "config_flow": true,
   "dependencies": [],
   "documentation": "https://github.com/McDon22/ha-tfl-local-transport",
   "iot_class": "cloud_polling",
   "issue_tracker": "https://github.com/McDon22/ha-tfl-local-transport/issues",
-  "requirements": ["aiohttp>=3.8.0"],
-  "version": "1.1.1"
+  "requirements": [
+    "aiohttp>=3.8.0"
+  ],
+  "version": "1.2.0"
 }
