@@ -404,3 +404,57 @@ class TrainApiClient:
         if result:
             self._last_source = "huxley"
         return result
+
+
+    async def get_dlr_arrivals(self, stop_point_id: str) -> list:
+        """
+        Get DLR arrivals for a specific stop point.
+        
+        This method queries the TfL Unified API for arrival predictions at a DLR station.
+        Results are filtered to show only DLR services (modeName = 'dlr').
+        
+        Args:
+            stop_point_id: TfL StopPoint ID (e.g., '940GZZDLLEW' for Lewisham DLR)
+        
+        Returns:
+            List of arrival predictions, each containing:
+                - destinationName: Final destination (e.g., "Bank DLR Station")
+                - platformName: Platform (e.g., "Platform 6")
+                - expectedArrival: ISO datetime string
+                - timeToStation: Seconds until arrival
+                - currentLocation: Current train location
+                - direction: "inbound" or "outbound"
+                - lineName: Line name (e.g., "DLR")
+                - modeName: Transport mode (always "dlr")
+        """
+        from .const import TFL_API_URL
+        
+        url = f"{TFL_API_URL}/StopPoint/{stop_point_id}/Arrivals"
+        
+        try:
+            async with self._session.get(url, params=self._get_params()) as response:
+                response.raise_for_status()
+                data = await response.json()
+                
+                # Filter for DLR only (mode = 'dlr')
+                dlr_arrivals = [
+                    arrival for arrival in data 
+                    if arrival.get("modeName", "").lower() == "dlr"
+                ]
+                
+                _LOGGER.debug(
+                    "Retrieved %d DLR arrivals for stop %s",
+                    len(dlr_arrivals),
+                    stop_point_id
+                )
+                
+                return dlr_arrivals
+                
+        except Exception as err:
+            _LOGGER.error(
+                "Error fetching DLR arrivals from TfL API for stop %s: %s",
+                stop_point_id,
+                err,
+                exc_info=True
+            )
+            return []
